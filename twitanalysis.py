@@ -102,8 +102,13 @@ def retrieve_tweets(db, terms):
 
         args = dict([(k, v[0]) for (k, v) in parse_qs(results['next_page'].lstrip('?')).items()])
 
+# Regular expressions
 positive_emoticon_re = re.compile(r'[:=]-?[)DpP]')
 negative_emoticon_re = re.compile(r'[:=]-?[(<]')
+url_re               = re.compile(r'https?://\S+')
+at_mention_re        = re.compile(r'@[A-Za-z0-9_]{1,15}')
+
+# Emoticons
 
 def find_emoticon(tweet_text):
     positive_emoticon_mo = positive_emoticon_re.search(tweet_text)
@@ -128,6 +133,41 @@ def tag_emoticons(db):
     update_emoticons = '''UPDATE tweets SET emoticon=%s WHERE id=%s'''
     db.executemany(update_emoticons, tags)
 
+def remove_emoticons(tweet_text):
+    (s, positive_removed) = positive_emoticon_re.subn('', tweet_text)
+    (t, negative_removed) = negative_emoticon_re.subn('', s)
+
+    return t
+
+# Resources/URLs
+    
+def remove_urls(tweet_text):
+    (s, urls_removed) = url_re.subn('', tweet_text)
+
+    return s
+
+# @-mentions
+
+def remove_at_mentions(tweet_text):
+    (s, at_mentions_removed) = at_mention_re.subn('', tweet_text)
+
+    return s
+
+# Cleaning
+
+def clean_tweet(tweet_text):
+    return remove_at_mentions(remove_urls(remove_emoticons(tweet_text)))
+
+def clean_tweets(db):
+    db.execute('''SELECT id, text FROM tweets''')
+    clean_tweets = []
+    for tweet in db.fetchall():
+        clean_tweets.append((clean_tweet(tweet['text']), tweet['id']))
+        print '"%s" => "%s"' % (tweet['text'], clean_tweets[-1][0])
+
+    update_tweets = '''UPDATE tweets SET clean_text=%s WHERE id=%s'''
+    db.executemany(update_tweets, clean_tweets)
+
 def main():
     # get command line options
     options, args = getopt(sys.argv[1:], 'e:d:u:p:t:')
@@ -150,7 +190,8 @@ def main():
         retrieve_tweets(db, options['t'])
 
     # begin NLP pipeline
-    tag_emoticons(db)
+    #tag_emoticons(db)
+    clean_tweets(db)
 
 if __name__ == '__main__':
     main()
