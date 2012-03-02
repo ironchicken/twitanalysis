@@ -16,7 +16,7 @@ def sqlite_db_cursor(filename='tweets.db'):
     cur = conn.cursor()
     return cur
 
-def mysql_db_cursor(db='tweets', user='root', password='tbatst'):
+def mysql_db_cursor(db='tweets', user='root', password=''):
     conn = MySQLdb.connect(host='localhost', user=user, passwd=password, db=db, cursorclass=DictCursor, use_unicode=True)
     conn.set_character_set('utf8')
     cur = conn.cursor()
