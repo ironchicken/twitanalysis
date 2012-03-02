@@ -3,6 +3,7 @@
 import sys, re, datetime, urllib2, traceback
 from urllib import urlencode, quote_plus
 from urlparse import parse_qs
+from getopt import getopt
 import simplejson as json
 import sqlite3
 import MySQLdb
@@ -128,11 +129,27 @@ def tag_emoticons(db):
     db.executemany(update_emoticons, tags)
 
 def main():
-    #db = sqlite_db_cursor(sys.argv[1])
-    db = mysql_db_cursor()
-    #initialise_sqlite_database(db)
-    #initialise_mysql_database(db)
-    #retrieve_tweets(db, sys.argv[1])
+    # get command line options
+    options, args = getopt(sys.argv[1:], 'e:d:u:p:t:')
+    options = dict([(o.strip('-'), a) for (o, a) in options if a != ''])
+
+    # connect to database
+    db = None
+    if not 'e' in options or options['e'] == 'mysql':
+        db = mysql_db_cursor(options.get('d', 'tweets'), options.get('u', 'root'), options.get('p', ''))
+        #initialise_mysql_database(db)
+    elif optionns['e'] == 'sqlite':
+        db = sqlite_db_cursor(options.get('d', 'tweets.db'))
+        #initialise_sqlite_database(db)
+    else:
+        print 'You must specify a database type (-e mysql|sqlite) and database name (-d).'
+        sys.exit(1)
+
+    # retrieve some tweets
+    if 't' in options:
+        retrieve_tweets(db, options['t'])
+
+    # begin NLP pipeline
     tag_emoticons(db)
 
 if __name__ == '__main__':
