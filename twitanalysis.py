@@ -103,9 +103,9 @@ def retrieve_tweets(db, terms):
 positive_emoticon_re = re.compile(r'[:=]-?[)DpP]')
 negative_emoticon_re = re.compile(r'[:=]-?[(<]')
 
-def find_emoticon(tweet):
-    positive_emoticon_mo = positive_emoticon_re.search(tweet)
-    negative_emoticon_mo = negative_emoticon_re.search(tweet)
+def find_emoticon(tweet_text):
+    positive_emoticon_mo = positive_emoticon_re.search(tweet_text)
+    negative_emoticon_mo = negative_emoticon_re.search(tweet_text)
 
     if positive_emoticon_mo and not negative_emoticon_mo:
         return ':)'
