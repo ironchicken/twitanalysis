@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, re, datetime, urllib2
+import sys, re, datetime, urllib2, traceback
 from urllib import urlencode, quote_plus
 from urlparse import parse_qs
 import simplejson as json
@@ -83,6 +83,7 @@ def retrieve_tweets(db, terms):
         try:
             resp = urllib2.urlopen(search_base + '?' + urlencode(args))
         except urllib2.HTTPError:
+            traceback.print_exc()
             break
         encoding = resp.headers['content-type'].split('charset=')[-1]
         results = json.loads(unicode(resp.read(), encoding))
