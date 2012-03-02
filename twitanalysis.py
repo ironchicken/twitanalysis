@@ -42,6 +42,15 @@ CREATE TABLE tweets (
   subjectivity      INTEGER,
   polarity          INTEGER)
 ''')
+    db.execute('''
+CREATE TABLE resources (
+  url               TEXT NOT NULL UNIQUE)
+''')
+    db.execute('''
+CREATE TABLE tweet_mentions_resource (
+  tweet_id          INTEGER NOT NULL,
+  resource          TEXT NOT NULL)
+''')
 
 def initialise_mysql_database(db):
     db.execute('''DROP TABLE IF EXISTS tweets''')
@@ -60,6 +69,16 @@ CREATE TABLE tweets (
   emoticon          CHAR(2),
   subjectivity      INT,
   polarity          INT)
+''')
+    db.execute('''
+CREATE TABLE resources (
+  url               VARCHAR(255) NOT NULL UNIQUE)
+''')
+    db.execute('''
+CREATE TABLE tweet_mentions_resource (
+  tweet_id          BIGINT NOT NULL,
+  resource          VARCHAR(255) NOT NULL,
+  KEY mention (tweet_id, resource))
 ''')
 
 def tweet_exists(db, tweet):
@@ -105,7 +124,7 @@ def retrieve_tweets(db, terms):
 # Regular expressions
 positive_emoticon_re = re.compile(r'[:=]-?[)DpP]')
 negative_emoticon_re = re.compile(r'[:=]-?[(<]')
-url_re               = re.compile(r'https?://\S+')
+url_re               = re.compile(r'https?://[A-Za-z0-9-_.]+\.[A-Za-z]+[A-Za-z0-9/._%?=&-]*')
 at_mention_re        = re.compile(r'@[A-Za-z0-9_]{1,15}')
 
 # Emoticons
@@ -140,6 +159,22 @@ def remove_emoticons(tweet_text):
     return t
 
 # Resources/URLs
+
+def record_resources(db):
+    db.execute('''SELECT id, text FROM tweets''')
+    urls = []
+    mentions = []
+    for tweet in db.fetchall():
+        found_urls = url_re.findall(tweet['text'])
+        urls.extend([(url,) for url in found_urls])
+        for url in found_urls:
+            mentions.append((tweet['id'], url))
+    
+    insert_urls = '''REPLACE INTO resources (url) VALUES (%s)'''
+    db.executemany(insert_urls, urls)
+
+    insert_mentions = '''REPLACE INTO tweet_mentions_resource (tweet_id, resource) VALUES (%s, %s)'''
+    db.executemany(insert_mentions, mentions)
     
 def remove_urls(tweet_text):
     (s, urls_removed) = url_re.subn('', tweet_text)
@@ -191,7 +226,8 @@ def main():
 
     # begin NLP pipeline
     #tag_emoticons(db)
-    clean_tweets(db)
+    #clean_tweets(db)
+    record_resources(db)
 
 if __name__ == '__main__':
     main()
