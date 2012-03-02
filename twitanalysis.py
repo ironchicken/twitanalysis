@@ -88,9 +88,12 @@ def retrieve_tweets(db, terms):
         results = json.loads(unicode(resp.read(), encoding))
 
         for tweet in results['results']:
-            print tweet['id']
+            print tweet['id'], '...',
             if not tweet_exists(db, tweet):
                 insert_tweet(db, tweet)
+                print 'Done.'
+            else:
+                print 'Duplicate.'
 
         if 'next_page' not in results:
             break
