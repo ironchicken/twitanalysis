@@ -114,13 +114,25 @@ def find_emoticon(tweet_text):
     else:
         return None
 
+def tag_emoticons(db):
+    db.execute('''SELECT id, text FROM tweets''')
+    tags = []
+    for tweet in db.fetchall():
+        emoticon = find_emoticon(tweet['text'])
+        if emoticon is not None:
+            print emoticon, '->', tweet['text']
+            tags.append((emoticon, tweet['id']))
+
+    update_emoticons = '''UPDATE tweets SET emoticon=%s WHERE id=%s'''
+    db.executemany(update_emoticons, tags)
 
 def main():
     #db = sqlite_db_cursor(sys.argv[1])
     db = mysql_db_cursor()
     #initialise_sqlite_database(db)
     #initialise_mysql_database(db)
-    #retrieve_tweets(db, sys.argv[2])
+    #retrieve_tweets(db, sys.argv[1])
+    tag_emoticons(db)
 
 if __name__ == '__main__':
     main()
