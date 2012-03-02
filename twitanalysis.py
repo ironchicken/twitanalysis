@@ -213,7 +213,7 @@ def main():
     if not 'e' in options or options['e'] == 'mysql':
         db = mysql_db_cursor(options.get('d', 'tweets'), options.get('u', 'root'), options.get('p', ''))
         #initialise_mysql_database(db)
-    elif optionns['e'] == 'sqlite':
+    elif options['e'] == 'sqlite':
         db = sqlite_db_cursor(options.get('d', 'tweets.db'))
         #initialise_sqlite_database(db)
     else:
