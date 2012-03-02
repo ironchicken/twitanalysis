@@ -225,8 +225,8 @@ def main():
         retrieve_tweets(db, options['t'])
 
     # begin NLP pipeline
-    #tag_emoticons(db)
-    #clean_tweets(db)
+    tag_emoticons(db)
+    clean_tweets(db)
     record_resources(db)
 
 if __name__ == '__main__':
