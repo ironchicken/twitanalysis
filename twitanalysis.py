@@ -112,7 +112,10 @@ def insert_tweet(db, tweet, terms=None):
     tweet['terms'] = terms
     sql = '''INSERT INTO tweets (%s) VALUES (%s)''' % (','.join(insert_fields), ','.join([DB_PARAM_PLACEHOLDER for f in insert_fields]))
     args = tuple([tweet[f] for f in insert_fields])
-    db.execute(sql, args)
+    try:
+        db.execute(sql, args)
+    except (sqlite3.IntegrityError, _mysql_exceptions.IntegrityError):
+        print 'missed duplicate!',
 
 def retrieve_tweets(db, terms):
     search_base = 'http://search.twitter.com/search.json'
