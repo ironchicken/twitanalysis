@@ -12,9 +12,20 @@ from MySQLdb.cursors import DictCursor
 import fuzzy
 import nltk
 
+DB_PARAM_PLACEHOLDER = None
+
+def get_placeholder(paramstyle):
+    if paramstyle == 'qmark': return '?'
+    elif paramstyle == 'format': return '%s'
+    else:
+        return None
+
 def sqlite_db_cursor(filename='tweets.db'):
-    conn = sqlite3.connect(filename)
+    conn = sqlite3.connect(filename, isolation_level=None)
+    conn.row_factory = dict_factory
     cur = conn.cursor()
+    global DB_PARAM_PLACEHOLDER
+    DB_PARAM_PLACEHOLDER = get_placeholder(sqlite3.paramstyle)
     return cur
 
 def mysql_db_cursor(db='tweets', user='root', password=''):
@@ -24,6 +35,8 @@ def mysql_db_cursor(db='tweets', user='root', password=''):
     cur.execute('''SET NAMES utf8;''')
     cur.execute('''SET CHARACTER SET utf8;''')
     cur.execute('''SET character_set_connection=utf8;''')
+    global DB_PARAM_PLACEHOLDER
+    DB_PARAM_PLACEHOLDER = get_placeholder(MySQLdb.paramstyle)
     return cur
 
 def initialise_sqlite_database(db):
@@ -84,14 +97,14 @@ CREATE TABLE IF NOT EXISTS tweet_mentions_resource (
 ''')
 
 def tweet_exists(db, tweet):
-    sql = '''SELECT id FROM tweets WHERE id=%s LIMIT 1'''
+    sql = '''SELECT id FROM tweets WHERE id=%s LIMIT 1''' % (DB_PARAM_PLACEHOLDER,)
     db.execute(sql, (tweet['id'],))
     return db.rowcount == 1
 
 def insert_tweet(db, tweet, terms=None):
     insert_fields = ['id', 'text', 'terms', 'from_user', 'from_user_id', 'to_user', 'to_user_id', 'created_at', 'iso_language_code']
     tweet['terms'] = terms
-    sql = '''INSERT INTO tweets (%s) VALUES (%s)''' % (','.join(insert_fields), ','.join(['%s' for f in insert_fields]))
+    sql = '''INSERT INTO tweets (%s) VALUES (%s)''' % (','.join(insert_fields), ','.join([DB_PARAM_PLACEHOLDER for f in insert_fields]))
     args = tuple([tweet[f] for f in insert_fields])
     db.execute(sql, args)
 
@@ -152,7 +165,7 @@ def tag_emoticons(db):
             print emoticon, '->', tweet['text']
             tags.append((emoticon, tweet['id']))
 
-    update_emoticons = '''UPDATE tweets SET emoticon=%s WHERE id=%s'''
+    update_emoticons = '''UPDATE tweets SET emoticon=%s WHERE id=%s''' % (DB_PARAM_PLACEHOLDER, DB_PARAM_PLACEHOLDER)
     db.executemany(update_emoticons, tags)
 
 def remove_emoticons(tweet_text):
@@ -173,10 +186,10 @@ def record_resources(db):
         for url in found_urls:
             mentions.append((tweet['id'], url))
     
-    insert_urls = '''REPLACE INTO resources (url) VALUES (%s)'''
+    insert_urls = '''REPLACE INTO resources (url) VALUES (%s)''' % (DB_PARAM_PLACEHOLDER,)
     db.executemany(insert_urls, urls)
 
-    insert_mentions = '''REPLACE INTO tweet_mentions_resource (tweet_id, resource) VALUES (%s, %s)'''
+    insert_mentions = '''REPLACE INTO tweet_mentions_resource (tweet_id, resource) VALUES (%s, %s)''' % (DB_PARAM_PLACEHOLDER, DB_PARAM_PLACEHOLDER)
     db.executemany(insert_mentions, mentions)
     
 def remove_urls(tweet_text):
@@ -203,7 +216,7 @@ def clean_tweets(db):
         clean_tweets.append((clean_tweet(tweet['text']), tweet['id']))
         print '"%s" => "%s"' % (tweet['text'], clean_tweets[-1][0])
 
-    update_tweets = '''UPDATE tweets SET clean_text=%s WHERE id=%s'''
+    update_tweets = '''UPDATE tweets SET clean_text=%s WHERE id=%s''' % (DB_PARAM_PLACEHOLDER, DB_PARAM_PLACEHOLDER)
     db.executemany(update_tweets, clean_tweets)
 
 def main():
