@@ -7,6 +7,7 @@ from getopt import getopt
 import simplejson as json
 import sqlite3
 import MySQLdb
+import _mysql_exceptions
 from MySQLdb.cursors import DictCursor
 import fuzzy
 import nltk
@@ -27,7 +28,7 @@ def mysql_db_cursor(db='tweets', user='root', password=''):
 
 def initialise_sqlite_database(db):
     db.execute('''
-CREATE TABLE tweets (
+CREATE TABLE IF NOT EXISTS tweets (
   id                INTEGER NOT NULL PRIMARY KEY,
   text              TEXT NOT NULL,
   terms             TEXT NOT NULL,
@@ -44,19 +45,18 @@ CREATE TABLE tweets (
   polarity          INTEGER)
 ''')
     db.execute('''
-CREATE TABLE resources (
+CREATE TABLE IF NOT EXISTS resources (
   url               TEXT NOT NULL UNIQUE)
 ''')
     db.execute('''
-CREATE TABLE tweet_mentions_resource (
+CREATE TABLE IF NOT EXISTS tweet_mentions_resource (
   tweet_id          INTEGER NOT NULL,
   resource          TEXT NOT NULL)
 ''')
 
 def initialise_mysql_database(db):
-    db.execute('''DROP TABLE IF EXISTS tweets''')
     db.execute('''
-CREATE TABLE tweets (
+CREATE TABLE IF NOT EXISTS tweets (
   id                BIGINT NOT NULL UNIQUE,
   text              VARCHAR(140) NOT NULL,
   terms             VARCHAR(64) NOT NULL,
@@ -73,11 +73,11 @@ CREATE TABLE tweets (
   polarity          INT)
 ''')
     db.execute('''
-CREATE TABLE resources (
+CREATE TABLE IF NOT EXISTS resources (
   url               VARCHAR(255) NOT NULL UNIQUE)
 ''')
     db.execute('''
-CREATE TABLE tweet_mentions_resource (
+CREATE TABLE IF NOT EXISTS tweet_mentions_resource (
   tweet_id          BIGINT NOT NULL,
   resource          VARCHAR(255) NOT NULL,
   KEY mention (tweet_id, resource))
@@ -214,11 +214,19 @@ def main():
     # connect to database
     db = None
     if not 'e' in options or options['e'] == 'mysql':
-        db = mysql_db_cursor(options.get('d', 'tweets'), options.get('u', 'root'), options.get('p', ''))
-        #initialise_mysql_database(db)
+        try:
+            db = mysql_db_cursor(options.get('d', 'tweets'), options.get('u', 'root'), options.get('p', ''))
+            initialise_mysql_database(db)
+        except _mysql_exceptions.OperationalError, e:
+            print 'Database error:', e
+            sys.exit(1)
     elif options['e'] == 'sqlite':
-        db = sqlite_db_cursor(options.get('d', 'tweets.db'))
-        #initialise_sqlite_database(db)
+        try:
+            db = sqlite_db_cursor(options.get('d', 'tweets.db'))
+            initialise_sqlite_database(db)
+        except sqlite3.OperationalError, e:
+            print 'Database error:', e
+            sys.exit(1)
     else:
         print 'You must specify a database type (-e mysql|sqlite) and database name (-d).'
         sys.exit(1)
