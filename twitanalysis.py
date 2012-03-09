@@ -30,6 +30,7 @@ def initialise_sqlite_database(db):
 CREATE TABLE tweets (
   id                INTEGER NOT NULL PRIMARY KEY,
   text              TEXT NOT NULL,
+  terms             TEXT NOT NULL,
   from_user         TEXT NOT NULL,
   from_user_id      INTEGER NOT NULL,
   to_user           TEXT,
@@ -58,6 +59,7 @@ def initialise_mysql_database(db):
 CREATE TABLE tweets (
   id                BIGINT NOT NULL UNIQUE,
   text              VARCHAR(140) NOT NULL,
+  terms             VARCHAR(64) NOT NULL,
   from_user         VARCHAR(16) NOT NULL,
   from_user_id      BIGINT NOT NULL,
   to_user           VARCHAR(16),
@@ -86,8 +88,9 @@ def tweet_exists(db, tweet):
     db.execute(sql, (tweet['id'],))
     return db.rowcount == 1
 
-def insert_tweet(db, tweet):
-    insert_fields = ['id', 'text', 'from_user', 'from_user_id', 'to_user', 'to_user_id', 'created_at', 'iso_language_code']
+def insert_tweet(db, tweet, terms=None):
+    insert_fields = ['id', 'text', 'terms', 'from_user', 'from_user_id', 'to_user', 'to_user_id', 'created_at', 'iso_language_code']
+    tweet['terms'] = terms
     sql = '''INSERT INTO tweets (%s) VALUES (%s)''' % (','.join(insert_fields), ','.join(['%s' for f in insert_fields]))
     args = tuple([tweet[f] for f in insert_fields])
     db.execute(sql, args)
@@ -111,7 +114,7 @@ def retrieve_tweets(db, terms):
         for tweet in results['results']:
             print tweet['id'], '...',
             if not tweet_exists(db, tweet):
-                insert_tweet(db, tweet)
+                insert_tweet(db, tweet, terms)
                 print 'Done.'
             else:
                 print 'Duplicate.'
