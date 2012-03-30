@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS tweets (
   from_user_id      INTEGER NOT NULL,
   to_user           TEXT,
   to_user_id        INTEGER,
+  retweet           INTEGER NOT NULL DEFAULT 0,
   created_at        TEXT NOT NULL,
   iso_language_code TEXT,
   clean_text        TEXT,
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS tweets (
   from_user_id      BIGINT NOT NULL,
   to_user           VARCHAR(16),
   to_user_id        BIGINT,
+  retweet           TINYINT NOT NULL DEFAULT 0,
   created_at        VARCHAR(32) NOT NULL,
   iso_language_code CHAR(2),
   clean_text        VARCHAR(255),
@@ -151,6 +153,7 @@ positive_emoticon_re = re.compile(r'[:=]-?[)DpP]')
 negative_emoticon_re = re.compile(r'[:=]-?[(<]')
 url_re               = re.compile(r'https?://[A-Za-z0-9-_.]+\.[A-Za-z]+[A-Za-z0-9/._%?=&-]*')
 at_mention_re        = re.compile(r'@[A-Za-z0-9_]{1,15}')
+retweet_re           = re.compile(r'(?<![\w\d])RT:?(?=\s)')
 
 # Emoticons
 
@@ -213,10 +216,24 @@ def remove_at_mentions(tweet_text):
 
     return s
 
+# Retweets
+
+def is_retweet(tweet_text):
+    return retweet_re.search(tweet_text) is not None
+
+def remove_rt_markers(tweet_text):
+    (s, rts_removed) = retweet_re.subn('', tweet_text)
+
+    return s
+
+def tag_retweets(db):
+    db.execute('''SELECT id, text FROM tweets''')
+    db.executemany('''UPDATE tweets SET retweet=1 WHERE id=%s''', [(tweet['id'],) for tweet in db.fetchall() if is_retweet(tweet['text'])])
+    
 # Cleaning
 
 def clean_tweet(tweet_text):
-    return remove_at_mentions(remove_urls(remove_emoticons(tweet_text)))
+    return remove_at_mentions(remove_urls(remove_emoticons(remove_rt_markers(tweet_text))))
 
 def clean_tweets(db):
     db.execute('''SELECT id, text FROM tweets''')
@@ -259,6 +276,7 @@ def main():
 
     # begin NLP pipeline
     tag_emoticons(db)
+    tag_retweets(db)
     clean_tweets(db)
     record_resources(db)
 
