@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS tweets (
   retweet           INTEGER NOT NULL DEFAULT 0,
   created_at        TEXT NOT NULL,
   iso_language_code TEXT,
+  geo               TEXT,
   clean_text        TEXT,
   parse_tree        TEXT,
   emoticon          TEXT,
@@ -87,6 +88,7 @@ CREATE TABLE IF NOT EXISTS tweets (
   retweet           TINYINT NOT NULL DEFAULT 0,
   created_at        VARCHAR(32) NOT NULL,
   iso_language_code CHAR(2),
+  geo               VARCHAR(255),
   clean_text        VARCHAR(255),
   parse_tree        TEXT,
   emoticon          CHAR(2),
@@ -109,22 +111,42 @@ def tweet_exists(db, tweet):
     db.execute(sql, (tweet['id'],))
     return db.rowcount == 1
 
+def extract_coords(geo):
+    if geo is not None and geo['type'] == 'Point':
+        return '%f,%f' % (geo['coordinates'][0], geo['coordinates'][1])
+    else:
+        return None
+
 def insert_tweet(db, tweet, terms=None):
-    insert_fields = ['id', 'text', 'terms', 'from_user', 'from_user_id', 'to_user', 'to_user_id', 'created_at', 'iso_language_code']
+    insert_fields = [('id', lambda a: a),
+                     ('text', lambda a: a),
+                     ('terms', lambda a: a),
+                     ('from_user', lambda a: a),
+                     ('from_user_id', lambda a: a),
+                     ('to_user', lambda a: a),
+                     ('to_user_id', lambda a: a),
+                     ('created_at', lambda a: a),
+                     ('iso_language_code', lambda a: a),
+                     ('geo', extract_coords)]
+    
     tweet['terms'] = terms
-    sql = '''INSERT INTO tweets (%s) VALUES (%s)''' % (','.join(insert_fields), ','.join([DB_PARAM_PLACEHOLDER for f in insert_fields]))
-    args = tuple([tweet[f] for f in insert_fields])
+    sql = '''INSERT INTO tweets (%s) VALUES (%s)''' % (','.join([fn for (fn, x) in insert_fields]), ','.join([DB_PARAM_PLACEHOLDER for f in insert_fields]))
+    args = [extract(tweet[fn]) for (fn, extract) in insert_fields]
+
     try:
         db.execute(sql, args)
     except (sqlite3.IntegrityError, _mysql_exceptions.IntegrityError):
         print 'missed duplicate!',
 
-def retrieve_tweets(db, terms):
+def retrieve_tweets(db, terms, lat=None, long=None, radius=None):
     search_base = 'http://search.twitter.com/search.json'
     args = {'q': quote_plus(terms),
             'page': '1',
             'rpp': '100',
             'lang': 'en'}
+
+    if lat is not None and long is not None and radius is not None:
+        args['geocode'] = '%f,%f,%dkm' % (float(lat), float(long), int(radius))
 
     while args['page'] is not None:
         try:
@@ -247,7 +269,7 @@ def clean_tweets(db):
 
 def main():
     # get command line options
-    options, args = getopt(sys.argv[1:], 'e:d:u:p:t:')
+    options, args = getopt(sys.argv[1:], 'e:d:u:p:t:l:')
     options = dict([(o.strip('-'), a) for (o, a) in options if a != ''])
 
     # connect to database
@@ -272,7 +294,16 @@ def main():
 
     # retrieve some tweets
     if 't' in options:
-        retrieve_tweets(db, options['t'])
+        if 'l' in options:
+            location_mo = re.search(r'^(-?[0-9]+\.?[0-9]*),(-?[0-9]+\.?[0-9]*),([0-9]+)km$', options['l'])
+            if location_mo:
+                print 'Location = ', location_mo.groups()
+                retrieve_tweets(db, options['t'], *location_mo.groups())
+            else:
+                print 'Invalid location: "%s"' % options['l']
+                sys.exit(1)
+        else:
+            retrieve_tweets(db, options['t'])
 
     # begin NLP pipeline
     tag_emoticons(db)
